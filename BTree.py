@@ -7,7 +7,7 @@ class Node:
     def __str__(self):
         return f'Id: {id(self)} \t ' \
                f'keys: {self.keys} \t ' \
-               f'children: {[id(child) for child in self.children]} \t '\
+               f'children: {[id(child) for child in self.children]} \t ' \
                f'parent id: {id(self.parent)}'
 
     def show_node(self):
@@ -26,6 +26,31 @@ class Node:
         index = self.find_index_to_insert(key)
         self.keys.insert(index, key)
 
+    def get_mid_index(self):
+        return len(self.keys) // 2
+
+    def get_mid_key(self):
+        return self.keys[self.get_mid_index()]
+
+    def get_l_child(self):
+        mid_index = self.get_mid_index()
+        keys = self.keys[:mid_index]
+        children = self.children[:mid_index + 1]
+        return Node(keys, children)
+
+    def get_r_child(self):
+        mid_index = self.get_mid_index()
+        keys = self.keys[mid_index+1:]
+        children = self.children[mid_index + 1:]
+        return Node(keys, children)
+
+    def set_parent(self, parent):
+        self.parent = parent
+
+    def set_parent_for_children(self, parent):
+        for child in self.children:
+            child.set_parent(parent)
+
 
 class BTree:
 
@@ -35,57 +60,34 @@ class BTree:
         self.show_arr = []
 
     def show(self):
-        self.show_arr = []
-        self.add_nodes_to_show(self.root, 0)
+        self.get_all_nodes()
         tree = ''
         for level in self.show_arr:
             for node in level:
-                tree += node
+                tree += node.show_node()
             tree += '\n'
         print(tree)
 
     def show_complex(self):
-        self.show_arr = []
-        self.add_nodes_to_show_complex(self.root, 0)
+        self.get_all_nodes()
         tree = ''
         for level in self.show_arr:
             for node in level:
-                tree += node + '\n'
+                tree += str(node) + '\n'
             tree += '\n\n'
         print(tree)
 
-    def add_nodes_to_show(self, node, level):
+    def get_all_nodes(self):
+        self.show_arr = []
+        self.get_all_nodes_util(self.root, 0)
+
+    def get_all_nodes_util(self, node, level):
         if len(self.show_arr) <= level:
             self.show_arr.append([])
-        self.show_arr[level].append(node.show_node())
+        self.show_arr[level].append(node)
         if not node.is_leaf():
             for child in node.children:
-                self.add_nodes_to_show(child, level + 1)
-
-    def add_nodes_to_show_complex(self, node, level):
-        if len(self.show_arr) <= level:
-            self.show_arr.append([])
-        self.show_arr[level].append(str(node))
-        if not node.is_leaf():
-            for child in node.children:
-                self.add_nodes_to_show_complex(child, level + 1)
-
-    # # TODO refactoring coś mi się nie podoba
-    # def search(self, key, node: Node):
-    #     for k, i in enumerate(node.keys):
-    #         if k == key:
-    #             return True
-    #         elif k > key:
-    #             if node.is_leaf:
-    #                 return False
-    #             return self.search(key, node.children[i])
-    #     else:
-    #         if node.is_leaf():
-    #             return False
-    #         return self.search(key, node.children[-1])
-
-    def make_new_root(self):
-        pass
+                self.get_all_nodes_util(child, level + 1)
 
     def add_key(self, key):
         node = self.find_node_to_insert(key)
@@ -103,82 +105,64 @@ class BTree:
             return self.find_node_to_insert(key, node.children[index])
 
     def split_node(self, node):
-        if self.is_root(node):
+        if self.is_it_root_node(node):
             self.split_root(node)
-        elif node.is_leaf():
-            self.split_branch(node)
-
-            # self.split_leaf(node)
         else:
-            self.split_branch(node)
+            self.split_branch_or_leaf(node)
         if self.is_full_node(node.parent):
             self.split_node(node.parent)
 
     def split_root(self, node):
-        mid_index = len(node.keys) // 2
-        l_keys = node.keys[:mid_index]
-        r_keys = node.keys[mid_index + 1:]
+        l_child = node.get_l_child()
+        r_child = node.get_r_child()
 
-        l_children = node.children[:mid_index + 1]
-        r_children = node.children[mid_index + 1:]
+        mid_key = node.get_mid_key()
+        self.set_root(Node([mid_key], [l_child, r_child]))
+        self.set_lr_child_parent(l_child, r_child, self.root)
 
-        l_child = Node(l_keys, l_children)
-        r_child = Node(r_keys, r_children)  # cos z parent
-
-        self.root = Node([node.keys[mid_index]], [l_child, r_child])
-
-        l_child.parent = self.root
-        r_child.parent = self.root
-
-        for child in l_child.children:
-            child.parent = l_child
-
-        for child in r_child.children:
-            child.parent = r_child
-
-    def is_root(self, node):
+    def is_it_root_node(self, node):
         return self.root == node
 
-    def split_leaf(self, node: Node):
-        mid_index = len(node.keys) // 2
-        l_keys = node.keys[:mid_index]
-        r_keys = node.keys[mid_index + 1:]
+    def set_root(self, root):
+        self.root = root
+
+    def split_branch_or_leaf(self, node):
+        l_child = node.get_l_child()
+        r_child = node.get_r_child()
 
         parent = node.parent
-        insert_index = parent.find_index_to_insert(node.keys[mid_index])
+        mid_key = node.get_mid_key()
 
-        parent.add_key_to_node(node.keys[mid_index])
-        node.keys = l_keys
-        parent.children[insert_index] = node
-        parent.children.insert(insert_index + 1, Node(r_keys, [], parent))
+        insert_index = parent.find_index_to_insert(mid_key)
+        parent.add_key_to_node(mid_key)
 
-    def split_branch(self, node):
-        mid_index = len(node.keys) // 2
-        l_keys = node.keys[:mid_index]
-        r_keys = node.keys[mid_index + 1:]
+        parent.children[insert_index:insert_index + 1] = [l_child, r_child]
+        self.set_lr_child_parent(l_child, r_child, parent)
 
-        l_children = node.children[:mid_index + 1]
-        r_children = node.children[mid_index + 1:]
+    @staticmethod
+    def set_lr_child_parent(l_child, r_child, parent):
+        l_child.set_parent(parent)
+        r_child.set_parent(parent)
 
-        parent = node.parent
-
-        insert_index = parent.find_index_to_insert(node.keys[mid_index])
-
-        l_child = Node(l_keys, l_children, parent)
-        r_child = Node(r_keys, r_children, parent)
-
-        parent.keys.insert(insert_index, node.keys[mid_index])
-        # parent.add_key_to_node(node.keys[mid_index])
-
-        parent.children[insert_index] = l_child
-        parent.children.insert(insert_index + 1, r_child)
-
-        print(' ')
+        l_child.set_parent_for_children(l_child)
+        r_child.set_parent_for_children(r_child)
 
     def is_full_node(self, node):
         if node is None:
             return False
         return len(node.keys) >= self.m
+
+    def search(self, key, node):
+        for k, i in enumerate(node.keys):
+            if k == key:
+                return True
+            elif k > key:
+                if node.is_leaf:
+                    return False
+                return self.search(key, node.children[i])
+        if node.is_leaf():
+            return False
+        return self.search(key, node.children[-1])
 
 
 if __name__ == '__main__':
@@ -209,7 +193,6 @@ if __name__ == '__main__':
 
     t.show_complex()
 
-
     t.add_key(7)
     # t.show()
 
@@ -235,57 +218,4 @@ if __name__ == '__main__':
 
     t.add_key(9)
     t.show()
-
-    t.add_key(9)
-    t.show()
-
-    t.add_key(9)
-    t.show()
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
-
-
-# To setdefaulst parameter as self variable probably only way
-# def lol(self, destination=None):
-#     if destination in None:
-#         destination = self.path
-#     x = do_stuff(destination)
-
-
-#
-#
-# n = Node()
-#    n.children.append(Node())
-#    n.keys.append(1)
-#    nc = n.children[0]
-#    nc.keys.append(2)
-#    nc.parent = n
-#    print(nc.parent.keys)
-#    n.keys.append(3)
-#    print(n.keys)
-#    print(nc.parent.keys)
-#    print(nc)
-#    print('boot integer: ', bool(0))
-#    x = 5
-#    y = 6
-#    print(x, y)
-#    temp = y
-#    y = x
-#    x = temp
-#    print(x, y, temp)
-#
-#    lst = []
-#    print('bool list test ', bool(lst))
-#    print(lst)
-#    lst = [1,2,3,4]
-#    print(lst)
-#    lst.insert(len(lst), -1)
-#    # lst.insert(-1, 5)
-#
-#    print(lst)
-#
-#    print(lst[8:])
-#
-#    nod = Node(keys=[1, 3, 5, 19])
-#    print(nod.show_node())
-#    print(bool(lst[9]))
+    
