@@ -1,7 +1,7 @@
----
 BTree  
-Author: Adrian Domagała
----
+Adrian Domagała  
+  
+Projekt w trakcie realizacji
 
 ## Spis treści
 * [Informacje ogólne](#Informacje-ogólne)
