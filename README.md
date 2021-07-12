@@ -11,7 +11,7 @@ Projekt w trakcie realizacji
 ---
 
 ## Informacje ogólne
-Projekt umożliwiający wizualizację działania b-drzewa.  
+Projekt umożliwiający wizualizację b-drzewa oraz przedstawienie krok po kroku sposobu działania algorytmów.  
 Program pozwala na przeprowadzenie następujących operacji:
   * wstawianie 
   * wyszukiwanie 
@@ -28,5 +28,5 @@ Projekt tworzony za pomocą:
 ---
 
 ## Wymagania
-
+* Tkinter
 ---
