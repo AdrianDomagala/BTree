@@ -1,5 +1,5 @@
 from BTree import *
-from Node import *
+from BTreeNode import *
 import copy
 import pytest
 
@@ -14,37 +14,33 @@ class TestBTree:
 
     @pytest.fixture
     def list_of_elements(self):
-        return [5, 22, 2, 27, 15, 12, 7, 17, 18, 17, 10, 4, 32, 20, 1, 11, 12]
+        return [5, 22, 2, 27, 15, 12, 7, 17, 18, 17, 10, 4, 32, 1, 11, 12]
 
     @pytest.fixture
     def node1(self):
-        child1 = Node([1])
-        child2 = Node([4])
-        node = Node([2], [child1, child2])
-        node.set_parent_for_children()
+        child1 = BTreeNode([1])
+        child2 = BTreeNode([4])
+        node = BTreeNode([2], [child1, child2])
         return node
 
     @pytest.fixture
     def node2(self):
-        child1 = Node([7])
-        child2 = Node([11, 12])
-        node = Node([10], [child1, child2])
-        node.set_parent_for_children()
+        child1 = BTreeNode([7])
+        child2 = BTreeNode([11, 12])
+        node = BTreeNode([10], [child1, child2])
         return node
 
     @pytest.fixture
     def node3(self):
-        child1 = Node([15, 17])
-        child2 = Node([18])
-        child3 = Node([27, 32])
-        node = Node([17, 22], [child1, child2, child3])
-        node.set_parent_for_children()
+        child1 = BTreeNode([15, 17])
+        child2 = BTreeNode([18])
+        child3 = BTreeNode([27, 32])
+        node = BTreeNode([17, 22], [child1, child2, child3])
         return node
 
     @pytest.fixture
     def root(self, node1, node2, node3):
-        root = Node([5, 12], [node1, node2, node3])
-        root.set_parent_for_children()
+        root = BTreeNode([5, 12], [node1, node2, node3])
         return root
 
     @pytest.fixture
@@ -54,7 +50,7 @@ class TestBTree:
     def test_create_btree(self, node1):
         tree1 = BTree(5)
         assert tree1.m == 5
-        assert tree1.root == Node()
+        assert tree1.root == BTreeNode()
         assert not tree1.all_nodes_arr
         assert BTree(4, node1).root == node1
 
@@ -66,9 +62,9 @@ class TestBTree:
         assert btree.find_node_to_insert(213) is btree.root.children[2].children[2]
 
     def test_is_it_full_node(self):
-        node1 = Node([1, 2])
-        node2 = Node([1, 2, 3, 4])
-        node3 = Node([1, 2, 2, 4, 5, 6, 7])
+        node1 = BTreeNode([1, 2])
+        node2 = BTreeNode([1, 2, 3, 4])
+        node3 = BTreeNode([1, 2, 2, 4, 5, 6, 7])
         btree4 = BTree(4)
         btree8 = BTree(8)
         assert not btree4.is_it_full_node(node1)
@@ -77,17 +73,17 @@ class TestBTree:
         assert not btree8.is_it_full_node(node3)
 
     def test_is_it_root_node(self):
-        root = Node([1, 2])
+        root = BTreeNode([1, 2])
         btree = BTree(3, root)
         assert btree.is_it_root_node(root)
-        assert not btree.is_it_root_node(Node([1, 2]))
+        assert not btree.is_it_root_node(BTreeNode([1, 2]))
 
-    def test_split_root(self):
-        root = Node([4, 5, 7], [Node([1]), Node([5]), Node([6]), Node([9])])
+    def test_split_root(self):  #do poprawy - chyba nie mogę na bierząco obliczeć tego co w funkcji tylkostatycznie podać odpowiednie elementy node
+        root = BTreeNode([4, 5, 7], [BTreeNode([1]), BTreeNode([5]), BTreeNode([6]), BTreeNode([9])])
         mid = len(root.keys) // 2
-        l_node = Node(root.keys[:mid], root.children[:mid + 1])
-        r_node = Node(root.keys[mid + 1:], root.children[mid + 1:])
-        root_after_split = Node([5], [l_node, r_node])
+        l_node = BTreeNode(root.keys[:mid], root.children[:mid + 1])
+        r_node = BTreeNode(root.keys[mid + 1:], root.children[mid + 1:])
+        root_after_split = BTreeNode([5], [l_node, r_node])
         btree = BTree(3, root)
         btree.split_root()
         assert btree.root == root_after_split
@@ -102,5 +98,24 @@ class TestBTree:
     def test_search(self):
         pass  # TODO
 
-    def test_delete_form_leaf(self):
-        pass  # TODO
+    def test_delete_form_leaf_with_supply(self, btree, node1, node2):
+        btree.delete_all_keys(18)
+        node3 = BTreeNode([17, 22], [BTreeNode([15]), BTreeNode([17]), BTreeNode([27, 32])])
+        root = BTreeNode([5, 12], [node1, node2, node3])
+        btree2 = BTree(3, root)
+        assert btree == btree2
+
+    def test_delete_key_in_root_with_merge_children(self, btree, node3):
+        btree.delete_all_keys(5)
+        btree.show()
+    #
+    def test_delete_not_unique(self, btree, node1):
+        btree.show()
+        btree.delete_all_keys(12)
+        btree.show()
+        node2 = BTreeNode([10], [BTreeNode([7]), BTreeNode([11])])
+        node3 = BTreeNode([17, 22], [BTreeNode([15]), BTreeNode([18]), BTreeNode([27, 32])])
+        root = BTreeNode([5, 17], [node1, node2, node3])
+        btree2 = BTree(3, root)
+        btree2.show()
+        assert btree == btree2
