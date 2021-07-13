@@ -8,23 +8,29 @@ from tkinter.ttk import Combobox, Spinbox, Style, Label, Button
 btree = BTree()
 possible_degree = [3, 4, 5, 6, 7]
 
+MAXVALUE = 9999
+MINVALUE = -9999
+
 xbox = 50
 ybox = 20
-xgap = 15
+xgap = 16
 ygap = 50
 
 number_of_cycle = 4
 steps_in_cycle = 10
-animation_speed = 500
+animation_speed = 520
 pulse_step_speed = animation_speed // (number_of_cycle * steps_in_cycle)
 
-history = [deepcopy(btree)]
+history = [(deepcopy(btree), [])]
 history_pos = 0
+
+actions_history = []
 
 
 def create():
-    global btree, history_pos, history
+    global btree, actions_history
     btree = BTree(m=int(max_deg_combo.get()))
+    actions_history = []
     history_update()
     show()
 
@@ -32,26 +38,28 @@ def create():
 def history_update():
     global btree, history_pos, history
     if len(history) == history_pos - 1:
-        history.append(deepcopy(btree))
+        history.append((deepcopy(btree), deepcopy(actions_history)))
         history_pos += 1
     else:
-        history[history_pos + 1:] = [deepcopy(btree)]
+        history[history_pos + 1:] = [(deepcopy(btree), deepcopy(actions_history))]
         history_pos = len(history) - 1
 
 
 def history_undo():
-    global btree, history_pos, history
+    global btree, history_pos, history, actions_history
     if history_pos:
         history_pos -= 1
-        btree = deepcopy(history[history_pos])
+        btree = deepcopy(history[history_pos][0])
+        actions_history = deepcopy(history[history_pos][1])
         show()
 
 
 def history_redo():
-    global btree, history_pos, history
+    global btree, history_pos, history, actions_history
     if len(history) > history_pos + 1:
         history_pos += 1
-        btree = deepcopy(history[history_pos])
+        btree = deepcopy(history[history_pos][0])
+        actions_history = deepcopy(history[history_pos][1])
         show()
 
 
@@ -87,6 +95,7 @@ def generate_coordinates(t=None):
 
     generate_coordinates_leaves(all_nodes[-1], start_x, start_y)
     generate_coordinates_parents(all_nodes[:-1], level_h)
+    root.after(40, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
 
 
 def show_nodes(t):
@@ -100,9 +109,9 @@ def show_nodes(t):
 
 def check_canvas_size(max_w, max_h):
     if max_h > int(canvas.cget('height')):
-        canvas.config(height=max_h + 120)
+        canvas.config(height=max_h + 2*(ybox+ygap))
     if max_w > int(canvas.cget('width')):
-        canvas.config(width=max_w + 120)
+        canvas.config(width=max_w + 2*(xbox+xgap))
     canvas_scroll_configure()
 
 
@@ -161,6 +170,7 @@ def show_branches(node: BTreeNode):
 
 
 def canvas_scroll_configure():
+    root.update()
     canvas.configure(scrollregion=canvas.bbox("all"))
 
 
@@ -172,10 +182,12 @@ def generate_parent_bottom_y(parent, level_h):
     return parent.get_first_child().get_coordinate_yd() - level_h
 
 
-def add(value=None):
+def add():
     global btree
     if check_spinbox_value(add_sb):
-        split_path = btree.add_key(get_spinbox_value(add_sb))
+        value = get_spinbox_value(add_sb)
+        actions_history.append(lambda: btree.add_key(value))
+        split_path = btree.add_key(value)
         run_animation(lambda: show_add(split_path))
         history_update()
 
@@ -339,6 +351,7 @@ def clear():
 def delete():
     if check_spinbox_value(delete_sb):
         value = get_spinbox_value(delete_sb)
+        actions_history.append(lambda: btree.delete_key(value))
         btree.delete_key(value)
         run_animation(show_delete)
         history_update()
@@ -354,9 +367,11 @@ def show_delete():
     root.after((len(btree.get_searching_path()) + 1) * animation_speed,
                lambda: enabled_buttons([delete_b]))
 
+
 def delete_all():
     if check_spinbox_value(delete_sb):
         value = get_spinbox_value(delete_sb)
+        actions_history.append(lambda: btree.delete_all_keys(value))
         btree.delete_all_keys(value)
         run_animation(show_delete)
         history_update()
@@ -371,6 +386,35 @@ def get_branch(node):
     pass  # TODO
 
 
+def convert():
+    global btree, actions_history
+    btree = BTree(m=int(max_deg_combo.get()))
+    for action in actions_history:
+        action()
+    history_update()
+    show()
+
+
+def zoom_in():
+    global xbox, ybox, xgap, ygap
+    if xbox < 100:
+        xbox += 5
+        ybox += 2
+        xgap += 2
+        ygap += 5
+        show()
+
+
+def zoom_out():
+    global xbox, ybox, xgap, ygap
+    if xbox > 30:
+        xbox -= 5
+        ybox -= 2
+        xgap -= 2
+        ygap -= 5
+        show()
+
+
 # INTERFACE
 root = Tk()
 root.title('BTree')
@@ -382,7 +426,7 @@ root.option_add('*Font', 'Arial 11')
 root.style = Style()
 # root.style.configure('TLabel', font=('Arial', '14', 'bold'))
 # root.style.configure('Title.TLabel', padding=200)
-root.style.configure('TButton', width=14, padding=(10, 2))
+root.style.configure('TButton', width=14, padding=(9, 2), cursor='man')
 root.style.configure('TSpinbox', width=5)
 
 # FRAMES
@@ -396,14 +440,14 @@ canvas_lf.pack(fill="both", padx=20, pady=20)
 
 # TITLE
 title_l = Label(title_f, text='BTree Visualisation', font=('Arial', '14', 'bold'))
-title_l.pack(pady=5)
+title_l.pack(pady=(12, 2))
 
 # MENU
 # menu frames
 menu_lf_subf = Frame(menu_lf)
-menu_lf_subf.pack(fill='both', padx=10, pady=5)
+menu_lf_subf.pack(fill='both', padx=10, pady=(4, 10))
 
-frame_width = [240, 700, 200]
+frame_width = [365, 602, 176]
 frame_height = 90
 
 menu_lf_create = LabelFrame(
@@ -434,35 +478,39 @@ menu_lf_actions.grid_propagate(0)
 menu_lf_create.grid_propagate(0)
 
 # menu create
-#             padding = {'padx': 10, 'pady': 10}
-#             b_w = 10
-#             b_h = 1
+max_deg_l = Label(menu_lf_create, text='Max Deg.')
 
 max_deg = StringVar()
-max_deg_combo = Combobox(menu_lf_create, textvariable=max_deg, width=10)
+max_deg_combo = Combobox(menu_lf_create,  cursor='hand2', textvariable=max_deg, width=2)
 max_deg_combo['state'] = 'readonly'
 max_deg_combo['values'] = possible_degree
+max_deg_combo['cursor'] = 'hand2'
 max_deg_combo.set(possible_degree[0])
-max_deg_combo.grid(row=0, column=0)
-# max_deg_combo.grid(row=0, column=0, **padding)
 
-# create_b = Button(menu_lf_create, text='Create', command=create, height=b_h, width=b_w)
-create_b = Button(menu_lf_create, text='Create', command=create)  # cursor='plus'
-undo_b = Button(menu_lf_create, text='Undo', command=history_undo)
-redo_b = Button(menu_lf_create, text='Redo', command=history_redo)
+create_b = Button(menu_lf_create, text='Create New', command=create, cursor='hand2')
+convert_b = Button(menu_lf_create, text='Convert', command=convert, cursor='hand2')
+undo_b = Button(menu_lf_create, text='Undo', command=history_undo, cursor='hand2')
+redo_b = Button(menu_lf_create, text='Redo', command=history_redo, cursor='hand2')
+clear_b = Button(menu_lf_create, text='Clear All', command=clear, cursor='hand2')
 
-create_b.grid(row=0, column=1, padx=5, pady=5)
-undo_b.grid(row=1, column=0, padx=5, pady=5)
-redo_b.grid(row=1, column=1)
+max_deg_l.grid(row=0, column=0, padx=(10, 5), pady=(10, 5))
+max_deg_combo.grid(row=0, column=1, padx=(0, 5), pady=(10, 5))
+create_b.grid(row=0, column=2, padx=(5, 5), pady=(10, 5))
+convert_b.grid(row=0, column=3, padx=(5, 10), pady=(10, 5))
+undo_b.grid(row=1, column=0, columnspan=2, padx=(10, 5), pady=(5, 10))
+redo_b.grid(row=1, column=2, padx=(5, 5), pady=(5, 10))
+clear_b.grid(row=1, column=3, padx=(5, 10), pady=(5, 10))
+
 
 # menu actions
 # buttons
-add_b = Button(menu_lf_actions, text='Add', command=add)
-delete_b = Button(menu_lf_actions, text='Delete', command=delete)
-find_b = Button(menu_lf_actions, text='Find', command=find)
-clear_b = Button(menu_lf_actions, text='Clear', command=clear)
-add_random_b = Button(menu_lf_actions, text='Add random', command=add_random)
-delete_all_b = Button(menu_lf_actions, text='Delete All', command=delete_all)
+add_b = Button(menu_lf_actions, text='Add', command=add, cursor='hand2')
+delete_b = Button(menu_lf_actions, text='Delete', command=delete, cursor='hand2')
+find_b = Button(menu_lf_actions, text='Find', command=find, cursor='hand2')
+add_random_b = Button(menu_lf_actions, text='Add random', command=add_random, cursor='hand2')
+delete_all_b = Button(menu_lf_actions, text='Delete All', command=delete_all, cursor='hand2')
+zoom_in_b = Button(menu_lf_actions, text='Zoom in', command=zoom_in, cursor='hand2')
+zoom_out_b = Button(menu_lf_actions, text='Zoom out', command=zoom_out, cursor='hand2')
 
 # spinbox
 add_sb_value = StringVar(value=0)
@@ -471,36 +519,37 @@ find_sb_value = StringVar(value=0)
 
 add_sb = Spinbox(
     menu_lf_actions,
-    from_=-9999,
-    to=9999,
+    from_=MINVALUE,
+    to=MAXVALUE,
     textvariable=add_sb_value,
     width=11
 )
 delete_sb = Spinbox(
     menu_lf_actions,
-    from_=-9999,
-    to=9999,
+    from_=MINVALUE,
+    to=MAXVALUE,
     textvariable=delete_sb_value,
     width=11
 )
 find_sb = Spinbox(
     menu_lf_actions,
-    from_=-9999,
-    to=9999,
+    from_=MINVALUE,
+    to=MAXVALUE,
     textvariable=find_sb_value,
     width=11
 )
 
 # menu actions grid
-add_b.grid(row=0, column=1, padx=5, pady=5)
-add_sb.grid(row=0, column=0, padx=5, pady=5)
-delete_b.grid(row=1, column=1, padx=5, pady=5)
-delete_sb.grid(row=1, column=0)
-find_b.grid(row=0, column=3, padx=5, pady=5)
-find_sb.grid(row=0, column=2, padx=5, pady=5)
-add_random_b.grid(row=1, column=2)
-clear_b.grid(row=1, column=3)
-delete_all_b.grid(row=0, column=4)
+add_b.grid(row=0, column=0, padx=(10, 5), pady=(10, 5))
+add_sb.grid(row=0, column=1, padx=5, pady=(10, 5))
+add_random_b.grid(row=0, column=2, padx=5, pady=(10, 5))
+find_b.grid(row=0, column=3, padx=5, pady=(10, 5))
+find_sb.grid(row=0, column=4, padx=(5, 10), pady=(10, 5))
+delete_b.grid(row=1, column=0, padx=(10, 5), pady=(5, 10))
+delete_sb.grid(row=1, column=1, padx=5, pady=(5, 10))
+delete_all_b.grid(row=1, column=2, padx=5, pady=(5, 10))
+zoom_in_b.grid(row=1, column=3, padx=5, pady=(5, 10))
+zoom_out_b.grid(row=1, column=4, padx=(5, 10), pady=(5, 10))
 
 # menu animation
 speed_l = Label(
@@ -513,8 +562,9 @@ speed_s = Scale(
     orient=HORIZONTAL,
     showvalue=False,
     from_=1200,
-    to=50,
-    resolution=10
+    to=40,
+    resolution=40,
+    cursor='hand2'
 )
 speed_s.set(animation_speed)
 
@@ -524,18 +574,19 @@ animation_c = Checkbutton(
     text='Animation',
     variable=animation_state,
     onvalue=True,
-    offvalue=False
+    offvalue=False,
+    cursor='hand2'
 )
 
-speed_l.grid(row=0, column=0)
-speed_s.grid(row=1, column=0)
-animation_c.grid(row=2, column=0)
+speed_l.grid(row=0, column=0, padx=25, pady=(5, 0))
+speed_s.grid(row=1, column=0, padx=25, pady=(2, 0))
+animation_c.grid(row=2, column=0, padx=25, pady=(1, 7))
 
 # CANVAS
 canvas_f = Frame(canvas_lf)
 canvas_f.pack(side="left", fill="both", padx=10, pady=10)
 
-canvas = Canvas(canvas_f, borderwidth=0, bg='white', width=1200, height=440)
+canvas = Canvas(canvas_f, borderwidth=0, bg='white', width=1200, height=413)
 
 canvas_xscroll = Scrollbar(canvas_f, orient='horizontal', command=canvas.xview)
 canvas_yscroll = Scrollbar(canvas_f, orient='vertical', command=canvas.yview)
