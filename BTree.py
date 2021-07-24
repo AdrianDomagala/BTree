@@ -5,13 +5,12 @@ from copy import deepcopy
 
 
 class BTree:
-    def __init__(self, m=3, root=None, is_set=None):
+    def __init__(self, m=3, root=None):
         if root is None:
             root = BTreeNode()
         self.m = m
         self.root = root
         self.all_nodes_arr = []
-        self.set_coordinates = is_set
         self.searching_path = None
         self.last_add_key_node_index = None
         self.last_delete_key_node_index = None

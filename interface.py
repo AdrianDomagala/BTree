@@ -4,6 +4,8 @@ from BTree import *
 from random import randint
 from copy import deepcopy
 from tkinter.ttk import Combobox, Spinbox, Style, Label, Button
+from tkinter.messagebox import showinfo
+
 
 btree = BTree()
 possible_degree = [3, 4, 5, 6, 7]
@@ -18,8 +20,9 @@ ygap = 50
 
 number_of_cycle = 4
 steps_in_cycle = 10
-animation_speed = 520
+animation_speed = 640
 pulse_step_speed = animation_speed // (number_of_cycle * steps_in_cycle)
+canvas_text_size = 12
 
 history = [(deepcopy(btree), [])]
 history_pos = 0
@@ -95,7 +98,7 @@ def generate_coordinates(t=None):
 
     generate_coordinates_leaves(all_nodes[-1], start_x, start_y)
     generate_coordinates_parents(all_nodes[:-1], level_h)
-    root.after(40, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
+    root.after(0, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
 
 
 def show_nodes(t):
@@ -155,6 +158,7 @@ def show_text(node: BTreeNode):
             canvas.create_text(
                 start_x + text_gap + i * xbox,
                 node.get_middle_y_coordinates(),
+                font=("Pursia", canvas_text_size),
                 text=key
             )
 
@@ -196,17 +200,19 @@ def check_spinbox_value(spinbox):
     val = spinbox.get()
     try:
         val = int(val)
-        if -9999 <= val <= 9999:
+        if MINVALUE <= val <= MAXVALUE:
             return True
         else:
+            show_info_window()
             return False
     except ValueError:
-        spinbox.set('enter integer')
+        show_info_window()
         return False
 
 
 def run_animation(action):
     if is_animation_on():
+        get_animation_speed()
         action()
     else:
         show(btree)
@@ -217,21 +223,20 @@ def is_animation_on():
 
 
 def show_add(split_path):
-    disabled_buttons([add_b, add_random_b])
-    get_animation_speed()
-    show_path()
-    root.after((len(btree.get_searching_path()) + 1) * animation_speed, lambda: show_split_path(split_path))
-    root.after((len(btree.get_searching_path() + split_path) + 1) * animation_speed, show)
-    root.after((len(btree.get_searching_path() + split_path) + 1) * animation_speed,
-               lambda: enabled_buttons([add_b, add_random_b]))
+    disable_all_buttons()
+    root.after(0, show_path)
+    root.after((len(btree.get_searching_path()) + 2) * animation_speed, lambda: show_split_path(split_path))
+    root.after((len(btree.get_searching_path() + split_path) + 2) * animation_speed, show)
+    root.after((len(btree.get_searching_path() + split_path) + 2) * animation_speed,
+               enable_all_buttons)
 
 
-def disabled_buttons(button):
+def disable_buttons(button):
     for but in button:
         but['state'] = 'disabled'
 
 
-def enabled_buttons(button):
+def enable_buttons(button):
     for but in button:
         but['state'] = 'normal'
 
@@ -314,13 +319,12 @@ def add_random():
 
 
 def find():
-    get_animation_speed()
     run_animation(lambda: show_find())
 
 
 def show_find():
     if check_spinbox_value(find_sb):
-        disabled_buttons([find_b])
+        disable_all_buttons()
 
         node, i = btree.search(get_spinbox_value(find_sb))
         show_path()
@@ -332,7 +336,7 @@ def show_find():
 
         delay += animation_speed
         root.after(delay, show)
-        root.after(delay, lambda: enabled_buttons([find_b]))
+        root.after(delay, enable_all_buttons)
 
 
 def highlight_key(node, i):
@@ -359,13 +363,12 @@ def delete():
 
 def show_delete():
     # btree.show_complex()
-    disabled_buttons([delete_b])
-    get_animation_speed()
+    disable_all_buttons()
     show_path()
     # root.after((len(btree.get_searching_path()) + 1) * animation_speed, lambda: show_split_path(split_path))
     root.after((len(btree.get_searching_path()) + 1) * animation_speed, show)
     root.after((len(btree.get_searching_path()) + 1) * animation_speed,
-               lambda: enabled_buttons([delete_b]))
+               enable_all_buttons)
 
 
 def delete_all():
@@ -396,23 +399,43 @@ def convert():
 
 
 def zoom_in():
-    global xbox, ybox, xgap, ygap
+    global xbox, ybox, xgap, ygap, canvas_text_size
     if xbox < 100:
         xbox += 5
         ybox += 2
         xgap += 2
         ygap += 5
+        canvas_text_size += 1
         show()
 
 
 def zoom_out():
-    global xbox, ybox, xgap, ygap
+    global xbox, ybox, xgap, ygap, canvas_text_size
     if xbox > 30:
         xbox -= 5
         ybox -= 2
         xgap -= 2
         ygap -= 5
+        canvas_text_size -= 1
         show()
+
+
+def show_info_window():
+    showinfo("Value error", f"The entered value must be an integer between {MINVALUE} and {MAXVALUE}")
+
+
+def disable_all_buttons():
+    all_buttons = [create_b, convert_b, undo_b, redo_b,
+                   clear_b, add_b, delete_b, add_random_b,
+                   delete_all_b, find_b, zoom_in_b, zoom_out_b]
+    disable_buttons(all_buttons)
+
+
+def enable_all_buttons():
+    all_buttons = [create_b, convert_b, undo_b, redo_b,
+                   clear_b, add_b, delete_b, add_random_b,
+                   delete_all_b, find_b, zoom_in_b, zoom_out_b]
+    enable_buttons(all_buttons)
 
 
 # INTERFACE
@@ -561,7 +584,7 @@ speed_s = Scale(
     menu_lf_animation,
     orient=HORIZONTAL,
     showvalue=False,
-    from_=1200,
+    from_=1600,
     to=40,
     resolution=40,
     cursor='hand2'
