@@ -237,6 +237,11 @@ class BTreeNode:
     def get_children(self):
         return self.children
 
+    def get_child_at(self, index):
+        if 0 <= index < len(self.children):
+            return self.children[index]
+        return False
+
     def get_first_child(self) -> BTreeNode:
         return self.children[0]
 
@@ -355,9 +360,10 @@ class BTreeNode:
                 parent=self.parent
             )]
 
-    def merge_with_right_neighbour(self):
+    def merge_with_right_neighbour(self, index=None):
         if right_neighbour := self.get_right_neighbour():
-            index = self.find_position_in_parent()
+            if index is None:
+                index = self.find_position_in_parent()
             key = self.parent.keys.pop(index)
             self.parent.children[index:index+2] = [BTreeNode(
                 keys=self.keys + [key] + right_neighbour.keys,
@@ -365,16 +371,26 @@ class BTreeNode:
                 parent=self.parent
             )]
 
-    def swap_key_from_leaf(self, index: int) -> BTreeNode:
-        node = self.children[index].swap_key_from_leaf_util()
-        self.keys[index] = node.keys.pop()
+    def swap_key_from_extreme_right_leaf(self, index):
+        node = self.get_child_at(index).swap_key_from_leaf(-1)
+        self.keys[index] = node.keys.pop(-1)
         return node
 
-    def swap_key_from_leaf_util(self) -> BTreeNode:
+    def swap_key_from_extreme_left_leaf(self, index):
+        node = self.get_child_at(index+1).swap_key_from_leaf(0)
+        self.keys[index] = node.keys.pop(0)
+        return node
+
+    # def swap_key_from_leaf(self, index: int) -> BTreeNode:
+    #     node = self.children[index].swap_key_from_leaf_util()
+    #     self.keys[index] = node.keys.pop()
+    #     return node
+
+    def swap_key_from_leaf(self, index) -> BTreeNode:
         if self.is_leaf():
             return self
         else:
-            return self.children[-1].swap_key_from_leaf_util()
+            return self.children[index].swap_key_from_leaf(index)
 
 
 if __name__ == '__main__':

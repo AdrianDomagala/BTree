@@ -6,7 +6,6 @@ from copy import deepcopy
 from tkinter.ttk import Combobox, Spinbox, Style, Label, Button
 from tkinter.messagebox import showinfo
 
-
 btree = BTree()
 possible_degree = [3, 4, 5, 6, 7]
 
@@ -112,9 +111,9 @@ def show_nodes(t):
 
 def check_canvas_size(max_w, max_h):
     if max_h > int(canvas.cget('height')):
-        canvas.config(height=max_h + 2*(ybox+ygap))
+        canvas.config(height=max_h + 2 * (ybox + ygap))
     if max_w > int(canvas.cget('width')):
-        canvas.config(width=max_w + 2*(xbox+xgap))
+        canvas.config(width=max_w + 2 * (xbox + xgap))
     canvas_scroll_configure()
 
 
@@ -271,12 +270,12 @@ def highlight_node_pulse_expand(coordinates, cycle, i, colors=('#FFB9B9', '#FF00
     if cycle < number_of_cycle:
         if i <= steps_in_cycle // 2:
             canvas.create_rectangle(
-                *[coor-i if j < 2 else coor+i for j, coor in enumerate(coordinates)],
+                *[coor - i if j < 2 else coor + i for j, coor in enumerate(coordinates)],
                 outline=colors[0]
             )
             root.after(
                 pulse_step_speed,
-                lambda: highlight_node_pulse_expand(coordinates, cycle, i+1, colors)
+                lambda: highlight_node_pulse_expand(coordinates, cycle, i + 1, colors)
             )
         else:
             root.after(
@@ -289,12 +288,12 @@ def highlight_node_pulse_contract(coordinates, cycle, i, colors):
     if cycle < number_of_cycle:
         if i >= 1:
             canvas.create_rectangle(
-                *[coor-i if j < 2 else coor+i for j, coor in enumerate(coordinates)],
+                *[coor - i if j < 2 else coor + i for j, coor in enumerate(coordinates)],
                 outline=colors[1]
             )
-            root.after(pulse_step_speed, lambda: highlight_node_pulse_contract(coordinates, cycle, i-1, colors))
+            root.after(pulse_step_speed, lambda: highlight_node_pulse_contract(coordinates, cycle, i - 1, colors))
         else:
-            root.after(pulse_step_speed, lambda: highlight_node_pulse_expand(coordinates, cycle+1, 1, colors))
+            root.after(pulse_step_speed, lambda: highlight_node_pulse_expand(coordinates, cycle + 1, 1, colors))
 
 
 def change_node_color(node, color):
@@ -345,7 +344,7 @@ def highlight_key(node, i):
         coor[0] += i * xbox
         coor[2] = coor[0] + xbox
         # canvas.create_rectangle(*coor, outline='#00ff00')
-        highlight_node_pulse_expand(coor, 0, 0, [ '#8BFF99', '#00C317'])
+        highlight_node_pulse_expand(coor, 0, 0, ['#8BFF99', '#00C317'])
 
 
 def clear():
@@ -356,6 +355,7 @@ def delete():
     if check_spinbox_value(delete_sb):
         value = get_spinbox_value(delete_sb)
         actions_history.append(lambda: btree.delete_key(value))
+        btree.set_deleting_path([])
         btree.delete_key(value)
         run_animation(show_delete)
         history_update()
@@ -365,10 +365,20 @@ def show_delete():
     # btree.show_complex()
     disable_all_buttons()
     show_path()
+
     # root.after((len(btree.get_searching_path()) + 1) * animation_speed, lambda: show_split_path(split_path))
-    root.after((len(btree.get_searching_path()) + 1) * animation_speed, show)
-    root.after((len(btree.get_searching_path()) + 1) * animation_speed,
+    root.after((len(btree.get_searching_path()) + 1) * animation_speed, show_delete_steps)
+    root.after((len(btree.get_searching_path()) + len(btree.get_deleting_path()) + 2) * animation_speed, show)
+    root.after((len(btree.get_searching_path()) + len(btree.get_deleting_path()) + 2) * animation_speed,
                enable_all_buttons)
+
+
+def show_delete_steps(n=0):
+    delete_path = btree.get_deleting_path()
+    if n < len(delete_path):
+        t = delete_path[n]
+        show(t)
+        root.after(animation_speed, lambda: show_delete_steps(n + 1))
 
 
 def delete_all():
@@ -504,7 +514,7 @@ menu_lf_create.grid_propagate(0)
 max_deg_l = Label(menu_lf_create, text='Max Deg.')
 
 max_deg = StringVar()
-max_deg_combo = Combobox(menu_lf_create,  cursor='hand2', textvariable=max_deg, width=2)
+max_deg_combo = Combobox(menu_lf_create, cursor='hand2', textvariable=max_deg, width=2)
 max_deg_combo['state'] = 'readonly'
 max_deg_combo['values'] = possible_degree
 max_deg_combo['cursor'] = 'hand2'
@@ -523,7 +533,6 @@ convert_b.grid(row=0, column=3, padx=(5, 10), pady=(10, 5))
 undo_b.grid(row=1, column=0, columnspan=2, padx=(10, 5), pady=(5, 10))
 redo_b.grid(row=1, column=2, padx=(5, 5), pady=(5, 10))
 clear_b.grid(row=1, column=3, padx=(5, 10), pady=(5, 10))
-
 
 # menu actions
 # buttons
@@ -621,6 +630,5 @@ canvas.configure(scrollregion=canvas.bbox("all"))
 canvas_xscroll.pack(side='bottom', fill='x')
 canvas_yscroll.pack(side='right', fill='y')
 canvas.pack(side='left', fill='both', expand=True)
-
 
 root.mainloop()

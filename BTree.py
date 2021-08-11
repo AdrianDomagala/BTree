@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from BTreeNode import *
 from copy import deepcopy
+from math import ceil
 
 
 class BTree:
@@ -12,6 +13,7 @@ class BTree:
         self.root = root
         self.all_nodes_arr = []
         self.searching_path = None
+        self.delete_steps = []
         self.last_add_key_node_index = None
         self.last_delete_key_node_index = None
 
@@ -168,6 +170,7 @@ class BTree:
     def delete_key_form_leaf(self, node, index):
         self.last_delete_key_node_index = (deepcopy(node), index)
         node.keys.pop(index)
+        self.delete_steps.append(deepcopy(self))
         self.supply_node_if_it_needs(node)
 
     def supply_node_if_it_needs(self, node):
@@ -176,10 +179,45 @@ class BTree:
                 self.delete_root()
             else:
                 self.supply_node(node)
+                self.delete_steps.append(deepcopy(self))
 
     def delete_delimiter(self, node, index):
-        leaf = node.swap_key_from_leaf(index)
-        self.supply_node_if_it_needs(leaf)
+        if self.key_can_be_swap(node, index):
+            leaf = self.swap_key_in_delimiter(node, index)
+            self.delete_steps.append(deepcopy(self))
+            self.supply_node_if_it_needs(leaf)
+        else:
+            self.delete_by_merge(node, index)
+
+    def key_can_be_swap(self, node: BTreeNode, index: int) -> bool:
+        return self.key_can_be_swap_by_left_descendant(node, index) \
+               or self.key_can_be_swap_by_right_descendant(node, index)
+
+    def key_can_be_swap_by_left_descendant(self, node, index):
+        if child := node.get_child_at(index):
+            return child.number_of_keys() > self.min_number_of_keys()
+        return False
+
+    def key_can_be_swap_by_right_descendant(self, node, index):
+        if child := node.get_child_at(index + 1):
+            return child.number_of_keys() > self.min_number_of_keys()
+        return False
+
+    def swap_key_in_delimiter(self, node, index):
+        if self.key_can_be_swap_by_left_descendant(node, index):
+            return node.swap_key_from_extreme_right_leaf(index)
+        else:
+            return node.swap_key_from_extreme_left_leaf(index)
+
+    def delete_by_merge(self, node, index):
+        if left_child := node.get_child_at(index):
+            left_child.merge_with_right_neighbour(index)
+            self.delete_steps.append(deepcopy(self))
+            self.supply_node_if_it_needs(node)
+            # if self.is_it_root_node(node) and not self.is_node_have_enough_keys(node):
+            #     self.delete_root()
+            self.delete_key_util(self.min_number_of_keys(), node.get_child_at(index))
+
 
     def is_node_have_enough_keys(self, node):
         if self.is_it_root_node(node):
@@ -192,7 +230,7 @@ class BTree:
         return self.min_number_of_children() - 1
 
     def min_number_of_children(self):
-        return self.m // 2 if self.m > 3 else 2
+        return ceil(self.m / 2)
 
     def supply_node(self, node: BTreeNode):
         if self.can_be_supply_by_left_neighbour(node):
@@ -228,21 +266,32 @@ class BTree:
 
     def merge_node_with_left_neighbour(self, node):
         node.merge_with_left_neighbour()
+        self.delete_steps.append(deepcopy(self))
         return self.supply_node_if_it_needs(node.get_parent())
 
     def merge_node_with_right_neighbour(self, node):
         node.merge_with_right_neighbour()
+        self.delete_steps.append(deepcopy(self))
         return self.supply_node_if_it_needs(node.get_parent())
 
     def delete_root(self):
         new_root = self.root.children[0]
         self.root = new_root
+        self.delete_steps.append(deepcopy(self))
 
     def get_root(self):
         return self.root
 
     def get_height(self):
         return self.root.get_height()
+
+    def get_deleting_path(self):
+        return self.delete_steps if self.delete_steps is not None else []
+
+    def set_deleting_path(self, delete_path):
+        self.delete_steps = delete_path
+
+
 
 
 if __name__ == '__main__':
