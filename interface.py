@@ -5,6 +5,10 @@ from random import randint
 from copy import deepcopy
 from tkinter.ttk import Combobox, Spinbox, Style, Label, Button
 from tkinter.messagebox import showinfo
+from threading import Lock, Thread
+
+lock = Lock()
+finished = True
 
 btree = BTree()
 possible_degree = [3, 4, 5, 6, 7]
@@ -27,6 +31,7 @@ history = [(deepcopy(btree), [])]
 history_pos = 0
 
 actions_history = []
+currently_shown = False
 
 
 def create():
@@ -66,7 +71,9 @@ def history_redo():
 
 
 def show(t=None):
+    global currently_shown
     t = get_tree(t)
+    currently_shown = t
     if t.get_root().have_any_keys() or t.get_root().have_any_child():
         generate_coordinates(t)
         canvas.delete('all')
@@ -222,21 +229,28 @@ def is_animation_on():
 
 
 def show_add(split_path):
+    global finished
     disable_all_buttons()
-    root.after(0, show_path)
-    root.after((len(btree.get_searching_path()) + 2) * animation_speed, lambda: show_split_path(split_path))
-    root.after((len(btree.get_searching_path() + split_path) + 2) * animation_speed, show)
-    root.after((len(btree.get_searching_path() + split_path) + 2) * animation_speed,
-               enable_all_buttons)
+    node = (None, None)
+    if split_path:
+        node = split_path[0].get_last_used_node()
+    with lock:
+        finished = False
+    start_thread_with_tasks([
+        show_path,
+        lambda: show_split_path(split_path[:1]),
+        lambda: highlight_key(*node),
+        lambda: show_split_path(split_path[1:])
+    ])
 
 
-def disable_buttons(button):
-    for but in button:
+def disable_buttons(buttons):
+    for but in buttons:
         but['state'] = 'disabled'
 
 
-def enable_buttons(button):
-    for but in button:
+def enable_buttons(buttons):
+    for but in buttons:
         but['state'] = 'normal'
 
 
@@ -249,6 +263,8 @@ def get_animation_speed():
 def show_path():
     if is_animation_on() and btree.get_root().number_of_keys():
         show_path_util(0)
+    else:
+        release_lock()
 
 
 def show_path_util(n):
@@ -259,6 +275,17 @@ def show_path_util(n):
             change_node_color(node, '#ff0000')
             highlight_node_pulse(node)
             root.after(animation_speed, lambda: show_path_util(n + 1))
+        else:
+            release_lock()
+
+    else:
+        root.after(2 * animation_speed, release_lock)
+
+
+def release_lock():
+    global finished
+    with lock:
+        finished = True
 
 
 def highlight_node_pulse(node):
@@ -303,13 +330,16 @@ def change_node_color(node, color):
 def show_split_path(split_path):
     if is_animation_on() and len(split_path) > 0:
         show_split_path_util(split_path, 0)
+    else:
+        release_lock()
 
 
 def show_split_path_util(split_path, n):
     if n < len(split_path):
-        # split_path[n].show_complex_with_coordinates()
         show(split_path[n])
-        root.after(speed_s.get(), lambda: show_split_path_util(split_path, n + 1))
+        root.after(animation_speed, lambda: show_split_path_util(split_path, n + 1))
+    else:
+        release_lock()
 
 
 def add_random():
@@ -322,29 +352,55 @@ def find():
 
 
 def show_find():
+    global finished
     if check_spinbox_value(find_sb):
         disable_all_buttons()
-
         node, i = btree.search(get_spinbox_value(find_sb))
-        show_path()
+        with lock:
+            finished = False
 
-        delay = (len(btree.searching_path) + 1) * animation_speed
-        if i is not None:
-            root.after(delay, lambda: highlight_key(node, i))
-            delay += 2 * animation_speed
-
-        delay += animation_speed
-        root.after(delay, show)
-        root.after(delay, enable_all_buttons)
+        start_thread_with_tasks([show_path, lambda: highlight_key(node, i)])
 
 
-def highlight_key(node, i):
+def start_thread_with_tasks(tasks):
+    global finished
+    if tasks:
+        task = tasks.pop(0)
+        t = Thread(target=task)
+        t.start()
+        root.after(int(animation_speed / 2), lambda: check_thread_is_end(tasks))
+    else:
+        with lock:
+            finished = True
+
+
+def end_animation():
+    show()
+    enable_all_buttons()
+
+
+def check_thread_is_end(tasks=None):
+    global finished
+    with lock:
+        if finished:
+            if tasks:
+                finished = False
+                root.after(int(animation_speed), lambda: start_thread_with_tasks(tasks))
+            else:
+                end_animation()
+        else:
+            root.after(int(animation_speed), lambda: check_thread_is_end(tasks))
+
+
+def highlight_key(node, i, release=True):
     if node is not None and i < node.number_of_keys():
         coor = list(node.get_coordinates().values())
         coor[0] += i * xbox
         coor[2] = coor[0] + xbox
-        # canvas.create_rectangle(*coor, outline='#00ff00')
         highlight_node_pulse_expand(coor, 0, 0, ['#8BFF99', '#00C317'])
+        root.after(2 * animation_speed, release_lock)
+    else:
+        release_lock()
 
 
 def clear():
@@ -362,15 +418,11 @@ def delete():
 
 
 def show_delete():
-    # btree.show_complex()
+    global finished
     disable_all_buttons()
-    show_path()
-
-    # root.after((len(btree.get_searching_path()) + 1) * animation_speed, lambda: show_split_path(split_path))
-    root.after((len(btree.get_searching_path()) + 1) * animation_speed, show_delete_steps)
-    root.after((len(btree.get_searching_path()) + len(btree.get_deleting_path()) + 2) * animation_speed, show)
-    root.after((len(btree.get_searching_path()) + len(btree.get_deleting_path()) + 2) * animation_speed,
-               enable_all_buttons)
+    with lock:
+        finished = False
+    start_thread_with_tasks([show_path, show_delete_steps])
 
 
 def show_delete_steps(n=0):
@@ -379,6 +431,8 @@ def show_delete_steps(n=0):
         t = delete_path[n]
         show(t)
         root.after(animation_speed, lambda: show_delete_steps(n + 1))
+    else:
+        root.after(animation_speed, release_lock)
 
 
 def delete_all():
@@ -393,10 +447,6 @@ def delete_all():
 def get_spinbox_value(spinbox):
     if check_spinbox_value(spinbox):
         return int(spinbox.get())
-
-
-def get_branch(node):
-    pass  # TODO
 
 
 def convert():
@@ -457,8 +507,6 @@ root.option_add('*Font', 'Arial 11')
 
 # STYLE
 root.style = Style()
-# root.style.configure('TLabel', font=('Arial', '14', 'bold'))
-# root.style.configure('Title.TLabel', padding=200)
 root.style.configure('TButton', width=14, padding=(9, 2), cursor='man')
 root.style.configure('TSpinbox', width=5)
 
@@ -594,7 +642,7 @@ speed_s = Scale(
     orient=HORIZONTAL,
     showvalue=False,
     from_=1600,
-    to=40,
+    to=240,
     resolution=40,
     cursor='hand2'
 )

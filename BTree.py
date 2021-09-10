@@ -14,8 +14,8 @@ class BTree:
         self.all_nodes_arr = []
         self.searching_path = None
         self.delete_steps = []
-        self.last_add_key_node_index = None
-        self.last_delete_key_node_index = None
+        self.last_used_node = None
+        self.last_used_node_key_num = None
 
     def __eq__(self, other):
         if isinstance(other, BTree):
@@ -31,10 +31,11 @@ class BTree:
         if isinstance(key, int):
             node = self.find_node_to_insert(key)
 
-            self.last_add_key_node_index = (deepcopy(node), node.find_index_to_insert(key))
+            self.set_last_used_node(node, key)
 
             node.add_key_to_node(key)
             path = [deepcopy(self)]
+
             if self.is_it_full_node(node):
                 path += self.split_node(node)
             return path
@@ -44,6 +45,13 @@ class BTree:
             node = self.root
         self.searching_path = []
         return self.find_node_to_insert_util(key, node)
+
+    def set_last_used_node(self, node, key_num):
+        self.last_used_node = node
+        self.last_used_node_key_num = node.find_index_to_insert(key_num)
+
+    def get_last_used_node(self):
+        return self.last_used_node, self.last_used_node_key_num
 
     def find_node_to_insert_util(self, key: int, node: BTreeNode) -> BTreeNode:
         self.searching_path.append(node)
@@ -168,7 +176,6 @@ class BTree:
             self.delete_delimiter(node, index)
 
     def delete_key_form_leaf(self, node, index):
-        self.last_delete_key_node_index = (deepcopy(node), index)
         node.keys.pop(index)
         self.delete_steps.append(deepcopy(self))
         self.supply_node_if_it_needs(node)
@@ -214,10 +221,7 @@ class BTree:
             left_child.merge_with_right_neighbour(index)
             self.delete_steps.append(deepcopy(self))
             self.supply_node_if_it_needs(node)
-            # if self.is_it_root_node(node) and not self.is_node_have_enough_keys(node):
-            #     self.delete_root()
             self.delete_key_util(self.min_number_of_keys(), node.get_child_at(index))
-
 
     def is_node_have_enough_keys(self, node):
         if self.is_it_root_node(node):
@@ -290,8 +294,6 @@ class BTree:
 
     def set_deleting_path(self, delete_path):
         self.delete_steps = delete_path
-
-
 
 
 if __name__ == '__main__':

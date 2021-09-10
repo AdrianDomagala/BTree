@@ -116,7 +116,7 @@ class BTreeNode:
         """Return key at middle index."""
         return self.keys[self.get_mid_index()]
 
-    def create_l_part(self) -> BTreeNode:  # previous name create_l_child
+    def create_l_part(self) -> BTreeNode:
         """
         Creates new Node object containing all keys from 0 to middle index and all children from 0 to middle index + 1.
         Returns:
@@ -380,11 +380,6 @@ class BTreeNode:
         node = self.get_child_at(index+1).swap_key_from_leaf(0)
         self.keys[index] = node.keys.pop(0)
         return node
-
-    # def swap_key_from_leaf(self, index: int) -> BTreeNode:
-    #     node = self.children[index].swap_key_from_leaf_util()
-    #     self.keys[index] = node.keys.pop()
-    #     return node
 
     def swap_key_from_leaf(self, index) -> BTreeNode:
         if self.is_leaf():
